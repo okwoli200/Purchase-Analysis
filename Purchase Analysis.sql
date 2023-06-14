@@ -1,32 +1,29 @@
----------We first restored the OLTP database and then the staging and data Warehouse
----Create Purchase Staging DataBase
-CREATE database PurchaseStagging
+-----------I first restored the OLTP database and then created the staging and data Warehouse-----------
+--------Create Purchase Staging DataBase-----------
 
  IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'PurchaseStaging')
 	CREATE DATABASE PurchaseStaging
 ELSE
-	Print ('database already exist')
+	Print('database already exist')
 
 
-----Create Data Warehouse
+---------Create Data Warehouse----------
  IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'PurchaseEDW')
 	CREATE DATABASE PurchaseEDW
 ELSE
 	Print ('database already exist')
 
 
----Create the Schemas
+----------Create the Schemas----------
 USE PurchaseStaging
 CREATE SCHEMA Staging
-
 
 USE PurchaseEDW
 CREATE SCHEMA EDW
 
 
-
 ----------------- Creating the Date Dimesion Table-------
-
+USE PurchaseEDW
 CREATE TABLE EDW.DimDate
 (
 DateSK int,    
@@ -44,7 +41,7 @@ LoadDate datetime default getdate(),
 Constraint edw_dimdate_sk Primary key (DateSK)
 )
 
------ insert Dta dynamically into the Date table using a stored Procedure
+----- insert Data dynamically into the Date table using a stored Procedure
 
 Create or alter procedure EDW.DateGenerator(@endDate date)
 AS
@@ -85,9 +82,9 @@ SET NOCOUNT ON
 			when 6 then 'Viernes' when 7 then 'Sabado'
 			END, 
 		CASE DATEPART(MONTH, @CurrentDate)
-			WHEN 1 THEN 'Janvier' when 2 THEN 'Février' when 3 then 'mars' WHEN 4 THEN 'Avril' WHEN 5 THEN 'Mai'
-			WHEN 6 THEN 'JUIN' WHEN 7 THEN 'Juillet' WHEN 8 THEN 'Août' when 9 then 'Septembre' when 10 then 'Octobre'
-			WHEN 11 THEN 'Novembre' when 12 then 'Décembre' 
+			WHEN 1 THEN 'Janvier' when 2 THEN 'FÃ©vrier' when 3 then 'mars' WHEN 4 THEN 'Avril' WHEN 5 THEN 'Mai'
+			WHEN 6 THEN 'JUIN' WHEN 7 THEN 'Juillet' WHEN 8 THEN 'AoÃ»t' when 9 then 'Septembre' when 10 then 'Octobre'
+			WHEN 11 THEN 'Novembre' when 12 then 'DÃ©cembre' 
 		END,
 		CASE DATEPART(WEEKDAY, @CurrentDate)
 			WHEN 1 THEN 'Dimanche' when 2 then 'Lundi' when 3 then 'Mardi' when 4 then 'Mercredi' when 5 then 'Jeudi'
@@ -99,9 +96,9 @@ SET NOCOUNT ON
 END
 
 
------Extract Product Information from OLTP----
-USE [PurchaseOLTP]
-SELECT P.ProductID,P.Product, P.ProductNumber, p.UnitPrice, D.Department, getdate() as LoadDate
+----------Extract Product Information from OLTP----------
+USE PurchaseOLTP
+SELECT P.ProductID,P.Product, P.ProductNumber, P.UnitPrice, D.Department, getdate() as LoadDate
 FROM PRODUCT P
 INNER JOIN Department D ON P.DepartmentID = D.DepartmentID
 
@@ -111,11 +108,11 @@ INNER JOIN Department D ON P.DepartmentID = D.DepartmentID
 
 
 
-------Transform and Load Product into Staging---
-use [PurchaseStaging]
+------Transform and Load Product into Staging---------
+USE PurchaseStaging
 CREATE TABLE Staging.Product
 	(
-	ProductID INT,
+	ProductID int,
 	Product nvarchar(50),
 	ProductNumber nvarchar(50),
 	UnitPrice float,
@@ -125,19 +122,19 @@ CREATE TABLE Staging.Product
 	)
 
 
-SELECT ProductID, Product, ProductNumber, UnitPrice, Department, getdate() as Loaddate
+SELECT ProductID, Product, ProductNumber, UnitPrice, Department, getdate() as Loaddate FROM Staging.Product
 
 SELECT COUNT(*) AS DesCount FROM Staging.Product
 
 Truncate Table Staging.Product
 
 
--------Transform and Load product into the data warehouse
+-----------Transform and Load product into the data warehouse----------
 USE PurchaseEDW
 CREATE TABLE EDW.DimProduct
 	(
 	ProductSk int identity(1,1),
-	ProductID INT,
+	ProductID int,
 	Product nvarchar(50),
 	ProductNumber nvarchar(50),
 	UnitPrice float,
@@ -153,9 +150,9 @@ SELECT COUNT(*) As PostCount FROM EDW.DimProduct
 
 
 
-----Extract Store information from OLTP -----
+----------Extract Store information from OLTP -----------
 USE PurchaseOLTP
-SELECT  S.StoreID, s.StoreName, s.StreetAddress, C.CityName, st.State
+SELECT  S.StoreID, S.StoreName, S.StreetAddress, C.CityName, st.State
 FROM Store AS S
 INNER JOIN City C ON S.CityID = C.CityID
 INNER JOIN State AS st ON S.StateID = st.StateID
@@ -167,8 +164,8 @@ INNER JOIN City C ON S.CityID = C.CityID
 INNER JOIN State AS st ON S.StateID = st.StateID
 
 
-----Transform and Load Store into Staging----
-use PurchaseStaging
+---------Transform and Load Store into Staging----------
+USE PurchaseStaging
 CREATE TABLE Staging.Store
 (
 StoreID int,
@@ -181,13 +178,14 @@ Constraint staging_store_sk Primary key (storeID)
 )
 
 SELECT StoreID, StoreName, StreetAddress, CityName, State, getdate as LoadDate FROM staging.store
+
 SELECT COUNT(*) AS DesCount FROM Staging.Store
 
-Truncate Table Stagging.Store
+Truncate Table Staging.Store
 
 
------Transform and Load Store into the data Warehouse----
-use PurchaseEDW
+-----------Transform and Load Store into the data Warehouse----------
+USE PurchaseEDW
 CREATE TABLE EDW.DimStore
 (
 StoreSK int identity(1,1),
@@ -204,9 +202,9 @@ SELECT COUNT(*) AS PreCount FROM EDW.DimStore
 SELECT COUNT(*) AS PostCount FROM EDW.DimStore
 
 
-----Extract Employee Information Table From OLTP 
+---------Extract Employee Information Table From OLTP------------ 
 USE PurchaseOLTP
-SELECT e.EmployeeID, E.EmployeeNo, CONCAT(UPPER(E.LastName), ',', E.FirstName) AS Employee,  E.DoB, m.MaritalStatus
+SELECT E.EmployeeID, E.EmployeeNo, CONCAT(UPPER(E.LastName), ',', E.FirstName) AS Employee,  E.DoB, m.MaritalStatus
 FROM Employee E
 INNER JOIN MaritalStatus M on E.MaritalStatus = M.MaritalStatusID
 
@@ -215,7 +213,7 @@ FROM Employee E
 INNER JOIN MaritalStatus M on E.MaritalStatus = M.MaritalStatusID
 
 
---- Transform and Load Employee into Staging-----
+---------- Transform and Load Employee into Staging----------
 use PurchaseStaging
 CREATE TABLE Staging.Employee
 (
@@ -236,8 +234,8 @@ SELECT COUNT(*) AS DesCount  FROM Staging.Employee
 TRUNCATE TABLE Staging.Employee
 
 
-----Transform and Load Employee into the data warehouse-----
-use PurchaseEDW
+----------Transform and Load Employee into the data warehouse-----------
+USE PurchaseEDW
 CREATE TABLE EDW.DimEmployee
 (
 EmployeeSK INT Identity(1,1),
@@ -251,8 +249,8 @@ EffectiveEndDate datetime,
 Constraint EDW_Dimemployee_sk primary key (EmployeeSK)
 )
 
-SELECT COUNT(*) AS PreCount  FROM EDW.dimEmployee
-SELECT COUNT(*) AS PostCount  FROM EDW.dimEmployee
+SELECT COUNT(*) AS PreCount  FROM EDW.DimEmployee
+SELECT COUNT(*) AS PostCount  FROM EDW.DimEmployee
 
 
 
@@ -269,8 +267,8 @@ INNER JOIN City C ON V.CityID = C.CityID
 INNER JOIN STATE S ON C.StateID = S.StateID
 
 
------Transform and Load Vendor into Stagging -----
-USE purchaseStagging
+-----------Transform and Load Vendor into Staging ----------
+USE purchaseStaging
 CREATE TABLE Staging.Vendor
 (
 VendorID int,
@@ -285,15 +283,15 @@ Constraint staging_vendor_pk primary key(VendorID)
 )
 
 SELECT VendorID, VendorNo, Vendor,  RegistrationNo, VendorAddress,
-City, State FROM Stagging.Vendor
+City, State FROM Staging.Vendor
 
 SELECT COUNT(*) as Descount FROM Staging.Vendor
 
-Truncate Table Vendor.staging
+Truncate Table Vendor.Staging
 
 
-----Transform and Load Vendor into the data warehouse------
-use	purchaseEDW
+----------Transform and Load Vendor into the data warehouse------------
+USE PurchaseEDW
 CREATE TABLE EDW.DimVendor
 (
 VendorSK int identity(1,1),
@@ -314,7 +312,7 @@ SELECT COUNT(*) as precount FROM EDW.DimVendor
 SELECT COUNT(*) as postcount FROM EDW.DimVendor
 
 
-----Extract Purchase Analysis information from OLTP------- 
+----------Extract Purchase Analysis information from OLTP---------- 
 USE purchaseOLTP
 IF (SELECT COUNT(*) FROM purchaseEDW.EDW.Fact_PurchaseAnalysis) <=0
 	SELECT P.TransactionID, P.TransactionNO, CONVERT(DATE, P.TransDate) AS TransDate, CONVERT(DATE,p.OrderDate)
@@ -341,7 +339,7 @@ ELSE
 	WHERE CONVERT(DATE, p.TransDate) = DATEADD(day,-1, convert(date, getdate()))
 
 
-----Transform and Load Purchase analysis into Stagging 
+----------Transform and Load Purchase analysis into Staging----------- 
 use purchaseStaging
 CREATE TABLE Staging.PurchaseAnalysis
 (
@@ -366,12 +364,10 @@ StoreID, DifferentialDays,Quantity,TaxAmount, LineAmount, getdate() AS LoadDate 
 
 SELECT COUNT(*) AS DesCount FROM Staging.PurchaseAnalysis
 
-Truncate Table Stagging.PurchaseAnalysis
+Truncate Table Staging.PurchaseAnalysis
 
 
-
-
----------Transform and Load Purchase analysis into the data warehouse-----
+---------Transform and Load Purchase analysis into the data Warehouse-----
 USE purchaseEDW
 Create Table eDw.fact_PurchaseAnalysis
 	(
@@ -389,14 +385,14 @@ Create Table eDw.fact_PurchaseAnalysis
 	   TaxAmount  float,
 	   LineAmount float,
 	   LoadDate datetime default getdate(),
-	   constraint edw_fact_PurchaseAnalysis_sk primary key(PurchaseAnalysisSk),
-	   constraint EDW_Purchase_Transdatesk foreign key (TransDateSk) references EDW.DimDate(dateSk),		
-		constraint EDW_Purchase_Orderdatesk foreign key (OrderDateSk) references EDW.DimDate(dateSk),		
-		constraint EDW_Purchase_DeliveryDatesk foreign key (DeliveryDateSk) references EDW.DimDate(dateSk),
-		Constraint EDW_Purchase_VendorSk foreign key (VendorSk) references EdW.DimVendor(VendorSk),
-		constraint EDW_Purchase_EmployeeSK foreign key (EmployeeSk) references EDW.DimEmployee(EmployeeSK),
-		constraint EDW_Purchase_ProductSk foreign key(ProductSK) references EDW.DimProduct(ProductSk),
-		constraint EDW_Purchase_StoreSk foreign key(StoreSK) references EDW.dimStore(StoreSk)		
+	   Constraint edw_fact_PurchaseAnalysis_sk primary key(PurchaseAnalysisSk),
+	   Constraint EDW_Purchase_Transdatesk foreign key (TransDateSk) references EDW.DimDate(dateSk),		
+	   Constraint EDW_Purchase_Orderdatesk foreign key (OrderDateSk) references EDW.DimDate(dateSk),		
+	   Constraint EDW_Purchase_DeliveryDatesk foreign key (DeliveryDateSk) references EDW.DimDate(dateSk),
+	   Constraint EDW_Purchase_VendorSk foreign key (VendorSk) references EdW.DimVendor(VendorSk),
+	   Constraint EDW_Purchase_EmployeeSK foreign key (EmployeeSk) references EDW.DimEmployee(EmployeeSK),
+	   Constraint EDW_Purchase_ProductSk foreign key(ProductSK) references EDW.DimProduct(ProductSk),
+	   Constraint EDW_Purchase_StoreSk foreign key(StoreSK) references EDW.dimStore(StoreSk)		
 	)
 
  SELECT COUNT(*) AS PreCount from EDW.fact_PurchaseAnalysis
